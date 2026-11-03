@@ -100,6 +100,14 @@ def _seed_default_admin() -> None:
     db = SessionLocal()
     try:
         existing = db.query(admin.Admin).filter(admin.Admin.email == DEFAULT_ADMIN_EMAIL).first()
+        # Recovery switch: set LIFEFLOW_ADMIN_RESET=yes on the server to force the admin password
+        # back to LIFEFLOW_ADMIN_PASSWORD on the next start. Remove the switch afterwards.
+        if existing and os.environ.get("LIFEFLOW_ADMIN_RESET", "").strip().lower() in ("yes", "true", "1", "on"):
+            existing.hashed_password = hash_password(DEFAULT_ADMIN_PASSWORD)
+            existing.must_change_password = True
+            existing.two_factor_enabled = False
+            existing.totp_secret = None
+            db.commit()
         if not existing:
             db.add(admin.Admin(
                 full_name="LifeFlow Admin",
