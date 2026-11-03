@@ -5,7 +5,7 @@ import { isStandalone } from "../platform.js";
 const DISMISS_KEY = "lifeflow_install_dismissed";
 
 function wasDismissed() {
-  try { return Date.now() - Number(localStorage.getItem(DISMISS_KEY) || 0) < 7 * 24 * 3600 * 1000; } catch (e) { return false; }
+  try { return Date.now() - Number(localStorage.getItem(DISMISS_KEY) || 0) < 24 * 3600 * 1000; } catch (e) { return false; }
 }
 
 /**
@@ -24,11 +24,16 @@ export default function InstallPrompt() {
     const isIos = /iphone|ipad|ipod/i.test(ua) && !window.MSStream;
     if (isIos) { setIosHint(true); setHidden(false); }
     const onPrompt = (event) => { event.preventDefault(); setDeferred(event); setHidden(false); };
+    // The install signal may already have arrived before this component started.
+    if (window.__lifeflowInstallEvent) { setDeferred(window.__lifeflowInstallEvent); setHidden(false); }
+    const onReady = () => { if (window.__lifeflowInstallEvent) { setDeferred(window.__lifeflowInstallEvent); setHidden(false); } };
+    window.addEventListener("lifeflow-install-ready", onReady);
     const onInstalled = () => { setHidden(true); setDeferred(null); };
     window.addEventListener("beforeinstallprompt", onPrompt);
     window.addEventListener("appinstalled", onInstalled);
     return () => {
       window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("lifeflow-install-ready", onReady);
       window.removeEventListener("appinstalled", onInstalled);
     };
   }, []);
@@ -42,6 +47,7 @@ export default function InstallPrompt() {
     if (!deferred) return;
     deferred.prompt();
     await deferred.userChoice.catch(() => {});
+    window.__lifeflowInstallEvent = null;
     setDeferred(null);
     setHidden(true);
   }

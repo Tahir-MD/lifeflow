@@ -18,6 +18,16 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Naskh+Arabic:wght@400;600&family=Noto+Nastaliq+Urdu:wght@400;600&display=swap" rel="stylesheet">
   </head>
   <body>
+    <script>
+      // Catch the browser's install signal as early as possible, before the app starts,
+      // so the Install banner can still use it later.
+      window.__lifeflowInstallEvent = null;
+      window.addEventListener("beforeinstallprompt", function (event) {
+        event.preventDefault();
+        window.__lifeflowInstallEvent = event;
+        window.dispatchEvent(new Event("lifeflow-install-ready"));
+      });
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
