@@ -1,0 +1,30 @@
+fastapi==0.115.0
+uvicorn==0.30.6
+sqlalchemy==2.0.35
+pydantic==2.9.2
+email-validator==2.2.0
+python-jose==3.3.0
+bcrypt==4.2.0
+python-multipart==0.0.9
+python-dotenv==1.0.1
+requests==2.32.3
+
+# --- Report downloads (Excel and PDF) --------------------------------------
+openpyxl==3.1.5
+reportlab==4.2.5
+
+# --- Optional: SMS / email delivery (see app/services/delivery_service.py) --
+# Only needed if you set TWILIO_* / SENDGRID_* environment variables.
+twilio==9.3.7
+
+# --- Optional: browser/PWA push notifications (see app/services/push_service.py) --
+# Only needed if you set VAPID_* environment variables.
+pywebpush==2.0.1
+
+# --- Optional: native Android push via Firebase (see app/services/fcm_service.py) --
+# (google-auth is listed at the end of this file)
+
+# --- Optional: PostgreSQL for production (SQLite is used by default) -------
+psycopg2-binary==2.9.9   # PostgreSQL driver (needed for Neon)
+alembic==1.13.2
+google-auth==2.35.0

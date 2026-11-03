@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#c8102e" />
+<title>LifeFlow — offline</title>
+<style>
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#fff7f7;color:#2a1a1a;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px;box-sizing:border-box}
+  main{max-width:440px;text-align:center}
+  .drop{width:64px;height:64px;margin:0 auto 12px}
+  h1{font-size:1.5rem;margin:.2rem 0}
+  p{line-height:1.5}
+  a.btn,button{display:inline-block;margin:6px;padding:10px 18px;border-radius:10px;border:0;background:#c8102e;color:#fff;font-size:1rem;text-decoration:none;cursor:pointer}
+  .card{background:#fff;border:1px solid #f0d4d4;border-radius:14px;padding:14px;margin-top:18px;text-align:left}
+  .card h2{font-size:1rem;margin:0 0 6px}
+  .card p{margin:4px 0}
+</style>
+</head>
+<body>
+<main>
+  <svg class="drop" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4C32 4 12 28 12 42a20 20 0 0 0 40 0C52 28 32 4 32 4z" fill="#c8102e"/></svg>
+  <h1>You're offline</h1>
+  <p>LifeFlow can't reach the internet right now. Pages you've opened before still work. Anything you send will go through when you're back online.</p>
+  <p dir="rtl" lang="ur">آپ آف لائن ہیں۔ انٹرنیٹ واپس آنے پر دوبارہ کوشش کریں۔</p>
+  <button onclick="location.reload()">Try again</button>
+  <a class="btn" href="/">Home</a>
+  <div class="card">
+    <h2>In an emergency, call</h2>
+    <p>Rescue 1122 &nbsp;·&nbsp; Edhi 115 &nbsp;·&nbsp; Chhipa 1020</p>
+    <p>These numbers work without internet on any phone.</p>
+  </div>
+</main>
+</body>
+</html>

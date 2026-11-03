@@ -1,0 +1,10 @@
+{
+  "appId": "app.lifeflow.bloodbank",
+  "appName": "LifeFlow",
+  "webDir": "dist",
+  "server": { "androidScheme": "https" },
+  "plugins": {
+    "PushNotifications": { "presentationOptions": ["badge", "sound", "alert"] }
+  },
+  "android": { "allowMixedContent": false }
+}

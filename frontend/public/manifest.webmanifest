@@ -1,0 +1,23 @@
+{
+  "name": "LifeFlow — Blood Bank & Donor Network",
+  "short_name": "LifeFlow",
+  "description": "Find blood donors and hospital stock fast, and get alerts when someone needs your blood type.",
+  "id": "/",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#c8102e",
+  "lang": "en",
+  "categories": ["health", "medical"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Donor login", "url": "/donor/login", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "I need blood", "url": "/receiver/login", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

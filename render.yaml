@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: lifeflow-api
+    runtime: docker
+    rootDir: backend
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: LIFEFLOW_DATABASE_URL
+        sync: false          # paste your Neon connection string in the Render dashboard
+      - key: LIFEFLOW_SECRET_KEY
+        generateValue: true
+      - key: LIFEFLOW_ADMIN_PASSWORD
+        sync: false
+      - key: LIFEFLOW_ENV
+        value: production
+      - key: LIFEFLOW_BACKUP
+        value: "off"         # Render's disk is temporary; Neon keeps its own history
+      - key: GROQ_API_KEY
+        sync: false

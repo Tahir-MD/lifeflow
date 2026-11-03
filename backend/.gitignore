@@ -1,0 +1,7 @@
+.env
+lifeflow.db
+__pycache__/
+*.pyc
+.venv/
+venv/
+backups/
