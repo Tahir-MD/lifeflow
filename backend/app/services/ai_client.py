@@ -38,6 +38,16 @@ NOT_CONFIGURED_MESSAGE = (
 
 REQUEST_TIMEOUT_SECONDS = 20
 
+# The most recent failure reason, kept so /ai/diagnostic can show it
+# without anyone having to dig through server logs. Never contains the API key.
+LAST_ERROR: Optional[str] = None
+
+
+def _remember_error(text: str) -> None:
+    global LAST_ERROR
+    cleaned = re.sub(r"gsk_[A-Za-z0-9_\-]+", "gsk_***", text or "")
+    LAST_ERROR = cleaned[:400]
+
 
 def is_ai_configured() -> bool:
     return bool(GROQ_API_KEY)
@@ -78,6 +88,7 @@ def _chat_completion(system_prompt: str, user_message: str, max_tokens: int, res
             # Print the real reason to the backend's own console/log, since the
             # person using the app only ever sees a friendly fallback message.
             print(f"[ai_client] Groq API returned {response.status_code} for model '{model}': {response.text[:500]}")
+            _remember_error(f"Groq returned HTTP {response.status_code} for model '{model}': {response.text[:300]}")
             # A 400/404 here usually means the model name is wrong or was
             # decommissioned (Groq retires older models over time) -- retry
             # once with a small, generally-available model before giving up.
@@ -88,6 +99,7 @@ def _chat_completion(system_prompt: str, user_message: str, max_tokens: int, res
         return data["choices"][0]["message"]["content"]
     except Exception as error:  # noqa: BLE001 -- callers convert this into a friendly fallback
         print(f"[ai_client] Groq API call failed for model '{model}': {error!r}")
+        _remember_error(f"Request to Groq failed for model '{model}': {error!r}")
         return None
 
 

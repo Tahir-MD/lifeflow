@@ -57,9 +57,20 @@ def ai_diagnostic():
     """
     if not is_ai_configured():
         return {"ok": False, "reason": "GROQ_API_KEY is not set."}
+    from app.services import ai_client
+    from app.config import GROQ_API_KEY, AI_MODEL
+    ai_client.LAST_ERROR = None
     reply = ask_claude("You are a test assistant.", "Reply with exactly: OK")
     success = "error" not in reply.lower() and "not set up" not in reply.lower()
-    return {"ok": success, "reply": reply, "check_backend_console_for_details": not success}
+    return {
+        "ok": success,
+        "reply": reply,
+        "model": AI_MODEL,
+        "key_length": len(GROQ_API_KEY),
+        "key_starts_with_gsk": GROQ_API_KEY.startswith("gsk_"),
+        "key_has_extra_whitespace_or_quotes": GROQ_API_KEY != GROQ_API_KEY.strip().strip('"').strip("'"),
+        "reason": ai_client.LAST_ERROR,
+    }
 
 
 # ---------------------------------------------------------------------------
