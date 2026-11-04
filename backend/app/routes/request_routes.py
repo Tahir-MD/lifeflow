@@ -23,6 +23,10 @@ from app.utils.distance import calculate_distance_kilometers
 
 router = APIRouter(prefix="/requests", tags=["Blood Requests"])
 
+# A patient can send at most this many normal blood requests in 24 hours.
+# (The SOS button has its own separate limit in sos_routes.py.)
+MAX_PATIENT_REQUESTS_PER_DAY = 3
+
 
 def _try_fulfill_from_hospital_stock(db: Session, blood_request: BloodRequest, requester_name: str) -> None:
     """
@@ -297,6 +301,35 @@ def create_receiver_request(
     db: Session = Depends(get_db),
     current_receiver: Receiver = Depends(get_current_receiver),
 ):
+    # Daily limit: a patient can send only 3 requests in 24 hours, not more.
+    # Every request counts (even one still being reviewed), but SOS alerts do not,
+    # so a patient who used up the 3 can still send an SOS in a real emergency.
+    now = datetime.utcnow()
+    todays = (
+        db.query(BloodRequest)
+        .filter(
+            BloodRequest.requester_type == "receiver",
+            BloodRequest.requester_id == current_receiver.id,
+            BloodRequest.is_sos == False,  # noqa: E712
+            BloodRequest.created_at >= now - timedelta(hours=24),
+        )
+        .order_by(BloodRequest.created_at.asc())
+        .all()
+    )
+    if len(todays) >= MAX_PATIENT_REQUESTS_PER_DAY:
+        # The oldest request leaves the 24-hour window first; that is when a new one is allowed.
+        wait_minutes = max(int((todays[0].created_at + timedelta(hours=24) - now).total_seconds() // 60), 1)
+        hours, minutes = divmod(wait_minutes, 60)
+        wait_text = f"{hours} hour(s) {minutes} minute(s)" if hours else f"{minutes} minute(s)"
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                f"You can send only {MAX_PATIENT_REQUESTS_PER_DAY} blood requests per day. "
+                f"You can send a new request in about {wait_text}. "
+                f"If this is a real emergency, use the SOS button or call the hospital directly."
+            ),
+        )
+
     new_request = create_request_for(db, "receiver", current_receiver, request_data)
     return build_request_out(db, new_request)
 
