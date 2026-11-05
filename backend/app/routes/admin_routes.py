@@ -29,6 +29,7 @@ from app.services.history_service import build_history_entry
 from app.services.audit_service import record_event, verify_chain
 from app.routes.request_routes import build_request_out
 from datetime import datetime
+from app.utils.removal import remove_account
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -77,17 +78,17 @@ def change_admin_credentials(
 
 @router.get("/donors", response_model=List[DonorOut])
 def all_donors(db: Session = Depends(get_db), _admin: Admin = Depends(get_current_admin)):
-    return db.query(Donor).order_by(Donor.created_at.desc()).all()
+    return db.query(Donor).filter(Donor.is_removed.isnot(True)).order_by(Donor.created_at.desc()).all()
 
 
 @router.get("/hospitals", response_model=List[HospitalOut])
 def all_hospitals(db: Session = Depends(get_db), _admin: Admin = Depends(get_current_admin)):
-    return db.query(Hospital).order_by(Hospital.created_at.desc()).all()
+    return db.query(Hospital).filter(Hospital.is_removed.isnot(True)).order_by(Hospital.created_at.desc()).all()
 
 
 @router.get("/receivers", response_model=List[ReceiverOut])
 def all_receivers(db: Session = Depends(get_db), _admin: Admin = Depends(get_current_admin)):
-    return db.query(Receiver).order_by(Receiver.created_at.desc()).all()
+    return db.query(Receiver).filter(Receiver.is_removed.isnot(True)).order_by(Receiver.created_at.desc()).all()
 
 
 # --- Full history across every user, of every kind -------------------------
@@ -177,7 +178,7 @@ def receiver_history(receiver_id: int, db: Session = Depends(get_db), _admin: Ad
 @router.get("/staff", response_model=List[StaffOut])
 def all_staff(db: Session = Depends(get_db), _admin: Admin = Depends(get_current_admin)):
     """Every staff login at every hospital, across every shift."""
-    return db.query(Staff).order_by(Staff.hospital_id, Staff.shift).all()
+    return db.query(Staff).filter(Staff.is_removed.isnot(True)).order_by(Staff.hospital_id, Staff.shift).all()
 
 
 @router.get("/staff/{staff_id}/visitors", response_model=List[VisitorEntryOut])
@@ -285,7 +286,7 @@ def pending_donors(db: Session = Depends(get_db), _admin: Admin = Depends(get_cu
 
 
 @router.post("/verification/donors/{donor_id}/clear", response_model=DonorOut)
-def clear_donor(donor_id: int, notes: str = "", db: Session = Depends(get_db), current_admin: Admin = Depends(get_current_admin)):
+def clear_donor(donor_id: int, notes: str = "", doctor_name: str = "", doctor_reg_no: str = "", db: Session = Depends(get_db), current_admin: Admin = Depends(get_current_admin)):
     """
     Stands in for a medical provider confirming this donor's eligibility
     (screening results, no disqualifying conditions, etc.).
@@ -295,11 +296,14 @@ def clear_donor(donor_id: int, notes: str = "", db: Session = Depends(get_db), c
         raise HTTPException(status_code=404, detail="Donor not found")
     donor.medical_clearance_status = "cleared"
     donor.medical_clearance_notes = notes or None
+    donor.clearance_doctor_name = doctor_name.strip() or None
+    donor.clearance_doctor_reg_no = doctor_reg_no.strip() or None
+    donor.clearance_at = datetime.utcnow()
     db.commit()
     db.refresh(donor)
     record_event(
         db, "donor_medically_cleared", actor_type="admin", actor_id=current_admin.id,
-        payload={"donor_id": donor.id},
+        payload={"donor_id": donor.id, "doctor": doctor_name or None, "reg_no": doctor_reg_no or None},
     )
     return donor
 
@@ -445,3 +449,77 @@ def stock_gives(db: Session = Depends(get_db), _admin: Admin = Depends(get_curre
             "given_at": offer.responded_at,
         })
     return out
+
+
+# --- Remove any user (soft removal: login off, personal data wiped, history kept) ---
+
+@router.delete("/users/{role}/{account_id}")
+def remove_user(role: str, account_id: int, db: Session = Depends(get_db), current_admin: Admin = Depends(get_current_admin)):
+    models = {"donor": Donor, "receiver": Receiver, "hospital": Hospital, "staff": Staff}
+    if role not in models:
+        raise HTTPException(status_code=400, detail="Role must be donor, receiver, hospital or staff")
+    account = db.query(models[role]).filter(models[role].id == account_id).first()
+    if not account or account.is_removed:
+        raise HTTPException(status_code=404, detail="User not found")
+    # Free up anything this person was holding.
+    if role == "donor":
+        for d in db.query(Donation).filter(Donation.donor_id == account.id,
+                                           Donation.status.in_(("offered", "pending", "accepted"))).all():
+            d.status = "expired"
+    if role in ("hospital", "receiver"):
+        for r in db.query(BloodRequest).filter(BloodRequest.requester_type == role, BloodRequest.requester_id == account.id,
+                                               BloodRequest.status.in_(("open", "held"))).all():
+            r.status = "cancelled"
+    if role == "hospital":
+        for s in db.query(Staff).filter(Staff.hospital_id == account.id, Staff.is_removed.isnot(True)).all():
+            remove_account(s, "staff")
+    remove_account(account, role)
+    record_event(db, "user_removed", actor_type="admin", actor_id=current_admin.id,
+                 payload={"role": role, "account_id": account_id})
+    db.commit()
+    return {"message": f"{role} removed"}
+
+
+# --- Shortage analytics: where is blood needed most? (guides donation camps) ---
+
+@router.get("/analytics/shortages")
+def shortage_analytics(db: Session = Depends(get_db), _admin: Admin = Depends(get_current_admin)):
+    open_requests = db.query(BloodRequest).filter(BloodRequest.status.in_(("open", "held"))).all()
+    cities = {}
+    cache = {}
+
+    def city_of(req):
+        key = (req.requester_type, req.requester_id)
+        if key not in cache:
+            model = Hospital if req.requester_type == "hospital" else Receiver
+            acct = db.query(model).filter(model.id == req.requester_id).first()
+            cache[key] = (getattr(acct, "city", None) or "Unknown").strip().title() or "Unknown"
+        return cache[key]
+
+    for req in open_requests:
+        short = max(0, (req.units_needed or 0) - (req.units_fulfilled or 0))
+        if not short:
+            continue
+        city = city_of(req)
+        row = cities.setdefault(city, {"city": city, "bags_short": 0, "requests": 0, "by_blood_type": {}, "donors": 0})
+        row["bags_short"] += short
+        row["requests"] += 1
+        row["by_blood_type"][req.blood_type_needed] = row["by_blood_type"].get(req.blood_type_needed, 0) + short
+    for donor in db.query(Donor).filter(Donor.is_removed.isnot(True), Donor.is_eligible == True).all():  # noqa: E712
+        name = (donor.city or "Unknown").strip().title() or "Unknown"
+        if name in cities:
+            cities[name]["donors"] += 1
+    rows = sorted(cities.values(), key=lambda r: r["bags_short"], reverse=True)
+    for r in rows:
+        top = max(r["by_blood_type"].items(), key=lambda kv: kv[1])[0] if r["by_blood_type"] else None
+        r["top_blood_type"] = top
+        r["camp_suggestion"] = (
+            f"Hold a donation camp in {r['city']} and ask for {top} donors first."
+            if r["bags_short"] >= 1 and r["donors"] < r["bags_short"] * 2 else
+            f"{r['city']} has enough ready donors; send them reminders instead of a camp.")
+    totals = {}
+    for r in rows:
+        for bt, n in r["by_blood_type"].items():
+            totals[bt] = totals.get(bt, 0) + n
+    return {"cities": rows, "by_blood_type": [{"blood_type": k, "bags_short": v} for k, v in sorted(totals.items(), key=lambda kv: -kv[1])],
+            "total_bags_short": sum(totals.values())}

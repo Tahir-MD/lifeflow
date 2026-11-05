@@ -78,6 +78,8 @@ class DonorOut(LocationOut):
     last_donation_date: Optional[datetime] = None
     points: int
     medical_clearance_status: str = "pending"
+    clearance_doctor_name: Optional[str] = None
+    clearance_doctor_reg_no: Optional[str] = None
     age: Optional[int] = None
     gender: Optional[str] = None
     weight_kg: Optional[float] = None

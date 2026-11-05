@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean
 from datetime import datetime
 
 from app.database import Base
@@ -51,6 +51,9 @@ class Staff(Base):
     full_name = Column(String, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
+    # Soft removal by an admin (or a hospital for its staff): login is disabled, personal data wiped, history kept.
+    is_removed = Column(Boolean, default=False)
+    removed_at = Column(DateTime, nullable=True)
     shift = Column(String, nullable=False)  # one of SHIFT_CHOICES
     phone_number = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

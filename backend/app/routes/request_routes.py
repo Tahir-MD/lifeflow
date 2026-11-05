@@ -11,7 +11,7 @@ from app.models.request import BloodRequest
 from app.models.donation import Donation
 from app.models.donor import Donor
 from app.schemas.request_schema import ContributionOut, BloodRequestCreate, BloodRequestOut
-from app.utils.dependencies import get_current_hospital, get_current_receiver, get_current_any_account
+from app.utils.dependencies import get_current_hospital, get_current_receiver, get_current_any_account, get_current_requester
 from app.utils.notify import notify
 from app.utils.badges import is_eligible_now
 from app.services.matching_service import find_matching_donors, find_hospitals_with_stock
@@ -22,10 +22,6 @@ from app.services.tracking_service import add_event
 from app.utils.distance import calculate_distance_kilometers
 
 router = APIRouter(prefix="/requests", tags=["Blood Requests"])
-
-# A patient can send at most this many normal blood requests in 24 hours.
-# (The SOS button has its own separate limit in sos_routes.py.)
-MAX_PATIENT_REQUESTS_PER_DAY = 3
 
 
 def _try_fulfill_from_hospital_stock(db: Session, blood_request: BloodRequest, requester_name: str) -> None:
@@ -66,6 +62,27 @@ def _try_fulfill_from_hospital_stock(db: Session, blood_request: BloodRequest, r
     else:
         add_event(db, blood_request.id, "stock_checked", "Hospital blood banks were checked. No matching stock was available.")
     db.commit()
+
+
+def request_display_status(db: Session, blood_request: BloodRequest) -> str:
+    """The one plain status shown to people: Pending, Donor Accepted, Donation in Progress, Partially Fulfilled, Completed or Cancelled."""
+    from app.models.request_event import RequestEvent
+    if blood_request.status == "cancelled":
+        return "Cancelled"
+    if blood_request.status == "fulfilled":
+        return "Completed"
+    if blood_request.status == "held":
+        return "Pending"
+    if (blood_request.units_fulfilled or 0) > 0:
+        return "Partially Fulfilled"
+    promised = db.query(Donation).filter(
+        Donation.request_id == blood_request.id, Donation.status.in_(("pending", "accepted"))).first()
+    if promised:
+        moving = db.query(RequestEvent).filter(
+            RequestEvent.request_id == blood_request.id,
+            RequestEvent.kind.in_(("donor_on_the_way", "donor_arrived"))).first()
+        return "Donation in Progress" if moving else "Donor Accepted"
+    return "Pending"
 
 
 def build_request_out(db: Session, blood_request: BloodRequest) -> BloodRequestOut:
@@ -110,6 +127,7 @@ def build_request_out(db: Session, blood_request: BloodRequest) -> BloodRequestO
         ))
 
     return BloodRequestOut(
+        display_status=request_display_status(db, blood_request),
         id=blood_request.id,
         requester_type=blood_request.requester_type,
         requester_id=blood_request.requester_id,
@@ -301,35 +319,6 @@ def create_receiver_request(
     db: Session = Depends(get_db),
     current_receiver: Receiver = Depends(get_current_receiver),
 ):
-    # Daily limit: a patient can send only 3 requests in 24 hours, not more.
-    # Every request counts (even one still being reviewed), but SOS alerts do not,
-    # so a patient who used up the 3 can still send an SOS in a real emergency.
-    now = datetime.utcnow()
-    todays = (
-        db.query(BloodRequest)
-        .filter(
-            BloodRequest.requester_type == "receiver",
-            BloodRequest.requester_id == current_receiver.id,
-            BloodRequest.is_sos == False,  # noqa: E712
-            BloodRequest.created_at >= now - timedelta(hours=24),
-        )
-        .order_by(BloodRequest.created_at.asc())
-        .all()
-    )
-    if len(todays) >= MAX_PATIENT_REQUESTS_PER_DAY:
-        # The oldest request leaves the 24-hour window first; that is when a new one is allowed.
-        wait_minutes = max(int((todays[0].created_at + timedelta(hours=24) - now).total_seconds() // 60), 1)
-        hours, minutes = divmod(wait_minutes, 60)
-        wait_text = f"{hours} hour(s) {minutes} minute(s)" if hours else f"{minutes} minute(s)"
-        raise HTTPException(
-            status_code=429,
-            detail=(
-                f"You can send only {MAX_PATIENT_REQUESTS_PER_DAY} blood requests per day. "
-                f"You can send a new request in about {wait_text}. "
-                f"If this is a real emergency, use the SOS button or call the hospital directly."
-            ),
-        )
-
     new_request = create_request_for(db, "receiver", current_receiver, request_data)
     return build_request_out(db, new_request)
 
@@ -338,11 +327,35 @@ def create_receiver_request(
 def list_blood_requests(db: Session = Depends(get_db), _who=Depends(get_current_any_account)):
     requests = (
         db.query(BloodRequest)
-        .filter(BloodRequest.status.notin_(["held", "rejected"]))  # requests waiting for review stay private
+        .filter(BloodRequest.status.notin_(["held", "rejected", "cancelled"]))  # requests waiting for review stay private
         .order_by(BloodRequest.created_at.desc())
         .all()
     )
     return [build_request_out(db, item) for item in requests]
+
+
+@router.post("/{request_id}/cancel")
+def cancel_request(request_id: int, db: Session = Depends(get_db), who=Depends(get_current_requester)):
+    """The person (or hospital) who made a request can cancel it while it is still open."""
+    role, account = who
+    blood_request = db.query(BloodRequest).filter(BloodRequest.id == request_id).first()
+    if not blood_request or blood_request.requester_type != role or blood_request.requester_id != account.id:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if blood_request.status in ("cancelled", "fulfilled"):
+        raise HTTPException(status_code=400, detail=f"This request is already {blood_request.status}.")
+    blood_request.status = "cancelled"
+    # Donors who were still promised to this request are released, so they can help someone else.
+    active = db.query(Donation).filter(Donation.request_id == blood_request.id,
+                                       Donation.status.in_(("offered", "pending", "accepted"))).all()
+    for donation in active:
+        donation.status = "expired"
+        notify(db, "donor", donation.donor_id, "Request cancelled",
+               "The blood request you were helping with was cancelled by the requester. Thank you for being ready to help.",
+               category="donation", related_request_id=blood_request.id)
+    add_event(db, blood_request.id, "cancelled", "The request was cancelled by the requester.", role, account.id)
+    record_event(db, "request_cancelled", actor_type=role, actor_id=account.id, payload={"request_id": blood_request.id})
+    db.commit()
+    return {"message": "Request cancelled", "released_donors": len(active)}
 
 
 @router.get("/hospital/history", response_model=list[BloodRequestOut])

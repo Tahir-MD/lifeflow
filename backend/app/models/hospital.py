@@ -11,6 +11,8 @@ class Hospital(Base):
     name = Column(String, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
+    is_removed = Column(Boolean, default=False)
+    removed_at = Column(DateTime, nullable=True)
     license_number = Column(String, unique=True, nullable=False)
     phone_number = Column(String, nullable=False)
     cnic_number = Column(String, nullable=True)

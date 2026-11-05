@@ -2294,3 +2294,44 @@ button:not(:disabled):hover, .btn:hover, .contact-btn:hover { filter: brightness
 .chat-form textarea { flex: 1 1 auto; width: auto; min-width: 0; min-height: 76px; resize: vertical; padding: 10px 12px; font-size: 15px; line-height: 1.4; margin: 0; }
 .chat-form .chat-send { flex: 0 0 auto; width: auto; min-width: 0; padding: 8px 16px; font-size: 14px; margin: 0; height: 38px; }
 .chat-panel { width: 100%; box-sizing: border-box; }
+
+/* ---- v15.11: status pill, cancel, maps, analytics, mobile polish ---- */
+.request-status-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 6px 0; }
+.status-pill { color: #fff; font-weight: 600; font-size: 13px; padding: 4px 12px; border-radius: 999px; }
+.btn-danger-outline, .danger-btn { color: #b01e28; border-color: #b01e28; }
+.danger-btn { background: transparent; border: 1px solid #b01e28; border-radius: 8px; padding: 6px 10px; margin-left: 6px; }
+.map-box { width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid #e2e5ea; z-index: 0; }
+.live-map { margin-top: 10px; }
+.bar-row { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+.bar-name { min-width: 90px; }
+.bar-track { flex: 1; height: 12px; background: #eef0f3; border-radius: 6px; overflow: hidden; }
+.bar-fill { height: 100%; background: #c8102e; border-radius: 6px; }
+.signoff-fields { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.signoff-fields input { flex: 1 1 140px; min-width: 0; }
+
+html, body { overscroll-behavior-y: none; -webkit-text-size-adjust: 100%; }
+body { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+.nav { padding-top: calc(10px + env(safe-area-inset-top)); }
+button, .btn-outline, .inline-btn, select, input { touch-action: manipulation; }
+input, select, textarea { font-size: 16px; }              /* stops iOS/Android zooming into fields */
+input[type="checkbox"], input[type="radio"] { width: 20px; height: 20px; flex: none; vertical-align: middle; margin-right: 8px; }
+.contact-block a, .contact-actions a { display: inline-flex; align-items: center; gap: 6px; }
+@media (max-width: 640px) {
+  button, .btn-outline, .inline-btn, .contact-btn { min-height: 44px; }
+  .card { padding: 16px; border-radius: 14px; }
+  .list-row-top { flex-wrap: wrap; gap: 6px; }
+  .danger-btn { margin: 6px 6px 0 0; }
+  table { display: block; overflow-x: auto; }
+  img, video, canvas { max-width: 100%; height: auto; }
+  .map-box { height: 220px !important; }
+}
+
+/* v15.12 footer: developer credit + social logos */
+.site-footer .footer-bottom { display: flex; flex-direction: column; gap: 12px; align-items: center; text-align: center; }
+.site-footer .footer-dev { flex-direction: column; justify-content: center; gap: 10px; }
+.footer-social { display: inline-flex; gap: 14px; align-items: center; }
+.footer-social a { display: inline-flex; width: 36px; height: 36px; align-items: center; justify-content: center; border-radius: 50%; background: #1F2937; transition: transform .15s; }
+.footer-social a:hover { transform: translateY(-2px); background: #374151; }
+.footer-contact-line { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px; }
+.footer-contact-line a { color: #D9D4CA; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; font-size: 13px; word-break: break-all; }
+.footer-contact-line a:hover { color: #fff; text-decoration: underline; }

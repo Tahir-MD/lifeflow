@@ -2,6 +2,7 @@
 Live request tracking: a timeline of what has happened to a blood request, and the donor's
 "on the way" / "arrived" updates.
 """
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -114,3 +115,51 @@ def donor_update_status(
                category="donation", related_request_id=request_id)
     db.commit()
     return {"message": message}
+
+
+class LiveLocationIn(BaseModel):
+    latitude: float
+    longitude: float
+
+
+@router.post("/{request_id}/live-location")
+def donor_live_location(
+    request_id: int,
+    payload: LiveLocationIn,
+    db: Session = Depends(get_db),
+    current_donor: Donor = Depends(get_current_donor),
+):
+    """The donor's phone posts its position every few seconds while the donor is on the way."""
+    if not (-90 <= payload.latitude <= 90 and -180 <= payload.longitude <= 180):
+        raise HTTPException(status_code=400, detail="Invalid position")
+    donation = (db.query(Donation).filter(Donation.donor_id == current_donor.id, Donation.request_id == request_id,
+                                          Donation.status.in_(("pending", "accepted")))
+                .order_by(Donation.id.desc()).first())
+    if not donation:
+        raise HTTPException(status_code=403, detail="You have no active donation for this request")
+    donation.live_lat = payload.latitude
+    donation.live_lng = payload.longitude
+    donation.live_at = datetime.utcnow()
+    db.commit()
+    return {"ok": True}
+
+
+@router.get("/{request_id}/live-location")
+def read_live_location(request_id: int, db: Session = Depends(get_db), who=Depends(get_current_any_account)):
+    """The requester (and admin) sees where the donor is. Positions older than 10 minutes are hidden."""
+    role, account_id = who
+    blood_request = db.query(BloodRequest).filter(BloodRequest.id == request_id).first()
+    if not blood_request:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if role == "donor" or not _can_view(db, role, account_id, blood_request):
+        raise HTTPException(status_code=403, detail="This is not your request")
+    fresh = datetime.utcnow() - timedelta(minutes=10)
+    rows = (db.query(Donation).filter(Donation.request_id == request_id, Donation.status.in_(("pending", "accepted")),
+                                      Donation.live_at.isnot(None), Donation.live_at > fresh).all())
+    donors = []
+    for d in rows:
+        donor = db.query(Donor).filter(Donor.id == d.donor_id).first()
+        donors.append({"donor_name": (donor.full_name.split()[0] if donor else "Donor"),
+                       "latitude": d.live_lat, "longitude": d.live_lng, "updated_at": d.live_at.isoformat()})
+    return {"destination": {"latitude": blood_request.latitude, "longitude": blood_request.longitude},
+            "donors": donors}

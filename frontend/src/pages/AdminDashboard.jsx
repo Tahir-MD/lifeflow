@@ -23,6 +23,8 @@ import {
   getStaffHistoryAdmin,
   getMyAdminProfile,
 } from "../services/api";
+import ShortageAnalytics from "../components/ShortageAnalytics.jsx";
+import { adminRemoveUser } from "../services/api";
 import PrintButton from "../components/PrintButton.jsx";
 import PrintHeader from "../components/PrintHeader.jsx";
 import { useI18n } from "../i18n/I18nContext.jsx";
@@ -33,7 +35,7 @@ const GROUPS = [
     { key: "receivers", label: "Patients" }, { key: "staff", label: "Hospital staff" } ] },
   { key: "records", label: "Records", icon: "list", items: [
     { key: "requests", label: "All requests" }, { key: "donations", label: "All donations" },
-    { key: "notifications", label: "All messages" } ] },
+    { key: "notifications", label: "All messages" }, { key: "analytics", label: "Shortage analytics" } ] },
   { key: "review", label: "Review & safety", icon: "shield", items: [
     { key: "review", label: "Request review" }, { key: "extras", label: "Hospital verification & feedback" },
     { key: "governance", label: "Audit & AI" } ] },
@@ -66,6 +68,16 @@ export default function AdminDashboard() {
   const [staff, setStaff] = useState([]);
 
   const [drilldown, setDrilldown] = useState(null); // { type, id, name, items }
+
+  async function removeUser(role, item, name) {
+    if (!window.confirm(t("Remove {name}? They will not be able to log in any more. Their past records stay.", { name }))) return;
+    try {
+      await adminRemoveUser(role, item.id);
+      loadAll();
+    } catch (err) {
+      window.alert(err?.response?.data?.detail || t("Could not remove this user."));
+    }
+  }
 
   async function loadAll() {
     try {
@@ -199,6 +211,8 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {!drilldown && tab === "analytics" && <ShortageAnalytics />}
+
       {!drilldown && tab === "review" && <ReviewPanel />}
 
       {!drilldown && tab === "bulk" && <BulkMessagePanel />}
@@ -226,6 +240,7 @@ export default function AdminDashboard() {
                 <span className="distance">{d.points} {t("points")}</span>
               </div>
               <button className="inline-btn" onClick={() => openDonorHistory(d)}>{t("View full history")}</button>
+              <button className="inline-btn danger-btn" onClick={() => removeUser("donor", d, d.full_name)}>🗑 {t("Remove user")}</button>
             </div>
           ))}
         </div>
@@ -246,6 +261,7 @@ export default function AdminDashboard() {
                 <span className="distance">{h.phone_number}</span>
               </div>
               <button className="inline-btn" onClick={() => openHospitalHistory(h)}>{t("View full history")}</button>
+              <button className="inline-btn danger-btn" onClick={() => removeUser("hospital", h, h.name)}>🗑 {t("Remove user")}</button>
             </div>
           ))}
         </div>
@@ -266,6 +282,7 @@ export default function AdminDashboard() {
                 <span className="distance">{r.phone_number}</span>
               </div>
               <button className="inline-btn" onClick={() => openReceiverHistory(r)}>{t("View full history")}</button>
+              <button className="inline-btn danger-btn" onClick={() => removeUser("receiver", r, r.full_name)}>🗑 {t("Remove user")}</button>
             </div>
           ))}
         </div>
@@ -286,6 +303,7 @@ export default function AdminDashboard() {
                 <span className="distance">{t("Hospital #")}{s.hospital_id}</span>
               </div>
               <button className="inline-btn" onClick={() => openStaffHistory(s)}>{t("View full shift record")}</button>
+              <button className="inline-btn danger-btn" onClick={() => removeUser("staff", s, s.full_name)}>🗑 {t("Remove user")}</button>
             </div>
           ))}
         </div>

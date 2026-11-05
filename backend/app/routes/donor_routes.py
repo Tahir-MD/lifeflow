@@ -113,4 +113,4 @@ def my_referral(db: Session = Depends(get_db), current_donor: Donor = Depends(ge
 
 @router.get("", response_model=list[DonorOut])
 def list_all_donors(db: Session = Depends(get_db)):
-    return db.query(Donor).all()
+    return db.query(Donor).filter(Donor.is_removed.isnot(True)).all()

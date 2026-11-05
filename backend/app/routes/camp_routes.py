@@ -57,7 +57,7 @@ def create_camp(
     db.refresh(new_camp)
 
     # Let every donor know a new drive has been organized.
-    for donor in db.query(Donor).all():
+    for donor in db.query(Donor).filter(Donor.is_removed.isnot(True)).all():
         notify(
             db, "donor", donor.id,
             "New blood donation camp announced",

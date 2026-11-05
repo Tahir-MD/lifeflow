@@ -25,6 +25,7 @@ export default function AdminGovernancePanel() {
   const [drafts, setDrafts] = useState({});
   const [campSuggestions, setCampSuggestions] = useState(null);
   const [report, setReport] = useState(null);
+  const [signoff, setSignoff] = useState({});   // donor id -> { doctor, reg }
 
   function load() {
     getPendingHospitals().then((r) => setHospitals(r.data)).catch(() => {});
@@ -80,8 +81,12 @@ export default function AdminGovernancePanel() {
         {donors.map((d) => (
           <div className="list-row" key={d.id}>
             <div className="meta"><span className="badge">{d.blood_type}</span> {d.full_name} · {d.phone_number}</div>
-            <div>
-              <button onClick={() => act(clearDonor, d.id)}>{t("Clear")}</button>{" "}
+            <div className="signoff-fields">
+              <input placeholder={t("Doctor's name")} value={(signoff[d.id] || {}).doctor || ""}
+                onChange={(e) => setSignoff({ ...signoff, [d.id]: { ...(signoff[d.id] || {}), doctor: e.target.value } })} />
+              <input placeholder={t("Doctor's registration no. (PMDC)")} value={(signoff[d.id] || {}).reg || ""}
+                onChange={(e) => setSignoff({ ...signoff, [d.id]: { ...(signoff[d.id] || {}), reg: e.target.value } })} />
+              <button onClick={() => act(clearDonor, d.id, "", (signoff[d.id] || {}).doctor || "", (signoff[d.id] || {}).reg || "")}>{t("Clear")}</button>{" "}
               <button className="btn-outline" onClick={() => act(flagDonor, d.id, "Flagged by admin")}>{t("Flag")}</button>
             </div>
           </div>

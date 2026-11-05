@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, DateTime, ForeignKey, String
+from sqlalchemy import Column, Integer, DateTime, ForeignKey, String, Float
 from datetime import datetime
 
 from app.database import Base
@@ -20,3 +20,7 @@ class Donation(Base):
     status = Column(String, default="confirmed", server_default="confirmed", index=True)
     confirmed_by = Column(String, nullable=True)   # e.g. "hospital:3" or "staff:7"
     confirmed_at = Column(DateTime, nullable=True)
+    # Live position of the donor while on the way (item: map + live donor location)
+    live_lat = Column(Float, nullable=True)
+    live_lng = Column(Float, nullable=True)
+    live_at = Column(DateTime, nullable=True)

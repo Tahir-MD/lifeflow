@@ -49,7 +49,7 @@ def find_hospitals_with_stock(db: Session, blood_request: BloodRequest, prefer_h
     candidates = []
     for row in rows:
         hospital = db.query(Hospital).filter(Hospital.id == row.hospital_id).first()
-        if not hospital:
+        if not hospital or hospital.is_removed:
             continue
         distance = calculate_distance_kilometers(
             blood_request.latitude, blood_request.longitude,
@@ -127,6 +127,7 @@ def find_matching_donors(
         db.query(Donor)
         .filter(Donor.blood_type.in_(compatible_types))
         .filter(Donor.is_eligible == True)  # noqa: E712
+        .filter(Donor.is_removed.isnot(True))
         .all()
     )
 

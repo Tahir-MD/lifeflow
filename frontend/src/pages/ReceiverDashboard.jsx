@@ -31,6 +31,7 @@ import {
   nameError, emailError, passwordError, phoneError, numberError, locationErrors, hasErrors, serverMessage,
 } from "../utils/validators.js";
 import RequestProgress from "../components/RequestProgress.jsx";
+import RequestStatusBar from "../components/RequestStatusBar.jsx";
 import { describeUrgency } from "../utils/format.js";
 import { useToast } from "../components/ToastContext.jsx";
 import ContactButtons from "../components/ContactButtons.jsx";
@@ -401,9 +402,10 @@ export default function ReceiverDashboard() {
                 <span className="distance">{new Date(r.created_at).toLocaleString()}</span>
               </div>
               <div className="empty-state">
-                {t("Status:")} {t(r.status)} · {describeUrgency(r, t)}
+                {t("Status:")} {t(r.display_status || r.status)} · {describeUrgency(r, t)}
                 {r.patient_name ? ` · ${t("Patient")}: ${r.patient_name}` : ""}
               </div>
+              <RequestStatusBar request={r} onChanged={() => { loadMyRequests(); }} />
               <RequestProgress request={r} />
               <TrackToggle requestId={r.id} />
               <RequestInsights requestId={r.id} showResponse={false} />

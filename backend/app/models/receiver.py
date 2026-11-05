@@ -11,6 +11,9 @@ class Receiver(Base):
     full_name = Column(String, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
+    # Soft removal by an admin (or a hospital for its staff): login is disabled, personal data wiped, history kept.
+    is_removed = Column(Boolean, default=False)
+    removed_at = Column(DateTime, nullable=True)
     phone_number = Column(String, nullable=False)
     cnic_number = Column(String, nullable=False)
     address = Column(String, nullable=False)

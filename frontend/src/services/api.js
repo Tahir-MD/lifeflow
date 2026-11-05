@@ -294,7 +294,7 @@ export function getPendingHospitals() { return api.get("/admin/verification/hosp
 export function approveHospital(id) { return api.post(`/admin/verification/hospitals/${id}/approve`); }
 export function rejectHospital(id) { return api.post(`/admin/verification/hospitals/${id}/reject`); }
 export function getPendingDonors() { return api.get("/admin/verification/donors/pending"); }
-export function clearDonor(id, notes = "") { return api.post(`/admin/verification/donors/${id}/clear`, null, { params: { notes } }); }
+export function clearDonor(id, notes = "", doctor_name = "", doctor_reg_no = "") { return api.post(`/admin/verification/donors/${id}/clear`, null, { params: { notes, doctor_name, doctor_reg_no } }); }
 export function flagDonor(id, notes = "") { return api.post(`/admin/verification/donors/${id}/flag`, null, { params: { notes } }); }
 export function verifyAuditChain() { return api.get("/admin/audit/verify"); }
 export function getAuditLog() { return api.get("/admin/audit/log"); }
@@ -817,4 +817,21 @@ export function getChat(donationId) {
 }
 export function sendChat(donationId, text) {
   return api.post(`/chat/${donationId}`, { text });
+}
+
+// ---- v15.11: cancel, live location, removal, analytics ----
+export function cancelRequest(requestId) {
+  return api.post(`/requests/${requestId}/cancel`);
+}
+export function postLiveLocation(requestId, latitude, longitude) {
+  return api.post(`/tracking/${requestId}/live-location`, { latitude, longitude });
+}
+export function getLiveLocation(requestId) {
+  return api.get(`/tracking/${requestId}/live-location`);
+}
+export function adminRemoveUser(role, id) {
+  return api.delete(`/admin/users/${role}/${id}`);
+}
+export function getShortageAnalytics() {
+  return api.get("/admin/analytics/shortages");
 }

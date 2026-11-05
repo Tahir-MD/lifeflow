@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { getTracking } from "../services/api";
+import LiveDonorMap from "./LiveDonorMap.jsx";
 import { useI18n } from "../i18n/I18nContext.jsx";
 
 const STEP_LABELS = {
@@ -53,6 +54,7 @@ export default function RequestTimeline({ requestId }) {
         })}
       </ol>
       <p className="field-hint">{data.units_fulfilled}/{data.units_needed} {t("bags fulfilled")}</p>
+      {data.done_steps.includes("donor_on_the_way") && !data.done_steps.includes("received") && <LiveDonorMap requestId={requestId} />}
       <ul className="timeline-events">
         {data.events.map((e, i) => (
           <li key={i}><span className="timeline-time">{new Date(e.created_at + "Z").toLocaleString()}</span> {e.message}</li>

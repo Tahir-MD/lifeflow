@@ -2,6 +2,7 @@ import re
 from datetime import datetime
 from typing import List, Optional
 
+from app.utils.removal import remove_account
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -127,7 +128,7 @@ def list_my_staff(db: Session = Depends(get_db), actor: HospitalActor = Depends(
     """Every staff login this hospital has created, across all shifts (the hospital and its Manager can see this)."""
     rows = (
         db.query(Staff)
-        .filter(Staff.hospital_id == actor.hospital.id)
+        .filter(Staff.hospital_id == actor.hospital.id, Staff.is_removed.isnot(True))
         .order_by(Staff.shift, Staff.full_name)
         .all()
     )
@@ -162,7 +163,7 @@ def remove_staff(staff_id: int, db: Session = Depends(get_db), current_hospital:
         raise HTTPException(status_code=404, detail="Staff member not found")
     record_event(db, "staff_removed", actor_type="hospital", actor_id=current_hospital.id,
                  payload={"staff_id": staff.id, "name": staff.full_name})
-    db.delete(staff)
+    remove_account(staff, "staff")
     db.commit()
 
 

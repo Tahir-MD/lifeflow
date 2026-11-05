@@ -82,7 +82,7 @@ def update_my_inventory(
 @router.get("", response_model=List[HospitalInventoryOut])
 def list_all_hospital_inventories(db: Session = Depends(get_db)):
     """Public view so donors and patients can see which nearby hospitals already have stock."""
-    hospitals = db.query(Hospital).all()
+    hospitals = db.query(Hospital).filter(Hospital.is_removed.isnot(True)).all()
     results = []
     for hospital in hospitals:
         rows = db.query(BloodInventory).filter(BloodInventory.hospital_id == hospital.id).all()

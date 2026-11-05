@@ -16,4 +16,4 @@ def read_my_hospital_profile(current_hospital: Hospital = Depends(get_current_ho
 
 @router.get("", response_model=list[HospitalOut])
 def list_all_hospitals(db: Session = Depends(get_db)):
-    return db.query(Hospital).all()
+    return db.query(Hospital).filter(Hospital.is_removed.isnot(True)).all()
